@@ -185,6 +185,8 @@ class GlobalVars:
         'state': 'PublishedAndStagingGround',
     })
 
+    use_chat_api: bool = True
+
     class PostScanStat:
         """ Tracking post scanning data """
         # All stats in a key are reported into chat using the !!/stats command. The report_order_with_defaults

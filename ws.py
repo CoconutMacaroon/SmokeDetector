@@ -168,25 +168,31 @@ except TldIOError as ioerr:
         err_msg = strerror
     log_exception(type(ioerr), ioerr, err_msg, True, log_level="warning")
 
-if "ChatExchangeU" in os.environ:
-    log('debug', "ChatExchange username loaded from environment")
-    username = os.environ["ChatExchangeU"]
-elif GlobalVars.chatexchange_u:
-    log('debug', "ChatExchange username loaded from config")
-    username = GlobalVars.chatexchange_u
+if GlobalVars.use_chat_api:
+    log('debug', "Chat API key loaded from somewhere")
+    # TODO: Does this key need to be added to the redaction process?
+    # this is NOT a real key
+    key: str = "xyzabc"
 else:
-    log('error', "No ChatExchange username provided. Set it in config or provide it via environment variable")
-    exit_mode("shutdown")
+    if "ChatExchangeU" in os.environ:
+        log('debug', "ChatExchange username loaded from environment")
+        username = os.environ["ChatExchangeU"]
+    elif GlobalVars.chatexchange_u:
+        log('debug', "ChatExchange username loaded from config")
+        username = GlobalVars.chatexchange_u
+    else:
+        log('error', "No ChatExchange username provided. Set it in config or provide it via environment variable")
+        exit_mode("shutdown")
 
-if "ChatExchangeP" in os.environ:
-    log('debug', "ChatExchange password loaded from environment")
-    password = os.environ["ChatExchangeP"]
-elif GlobalVars.chatexchange_p:
-    log('debug', "ChatExchange password loaded from config")
-    password = GlobalVars.chatexchange_p
-else:
-    log('error', "No ChatExchange password provided. Set it in config or provide it via environment variable")
-    exit_mode("shutdown")
+    if "ChatExchangeP" in os.environ:
+        log('debug', "ChatExchange password loaded from environment")
+        password = os.environ["ChatExchangeP"]
+    elif GlobalVars.chatexchange_p:
+        log('debug', "ChatExchange password loaded from config")
+        password = GlobalVars.chatexchange_p
+    else:
+        log('error', "No ChatExchange password provided. Set it in config or provide it via environment variable")
+        exit_mode("shutdown")
 
 # We need an instance of bodyfetcher before load_files() is called
 GlobalVars.bodyfetcher = BodyFetcher()
@@ -204,7 +210,10 @@ GlobalVars.no_deletion_watcher = 'no_deletion_watcher' in sys.argv
 GlobalVars.no_edit_watcher = 'no_edit_watcher' in sys.argv
 GlobalVars.no_chat_ws_activity_timeout = 'no_chat_ws_activity_timeout' in sys.argv
 
-chatcommunicate.init(username, password)
+if GlobalVars.use_chat_api:
+    chatcommunicate.api_init(key)
+else:
+    chatcommunicate.init(username, password)
 Tasks.periodic(Metasmoke.send_status_ping_and_verify_scanning_if_active, interval=60)
 
 if GlobalVars.standby_mode:
@@ -238,7 +247,7 @@ def check_socket_connections():
         exit_mode("socket_failure")
 
 
-if not GlobalVars.no_chat_ws_activity_timeout:
+if not GlobalVars.no_chat_ws_activity_timeout and not GlobalVars.use_chat_api:
     Tasks.periodic(check_socket_connections, interval=90)
 
 log('info', '{} active'.format(GlobalVars.location))

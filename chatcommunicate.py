@@ -1,8 +1,4 @@
 # coding=utf-8
-from chatexchange import events
-from chatexchange.browser import LoginError
-from chatexchange.messages import Message
-from chatexchange_extension import Client
 import collections
 import itertools
 import os
@@ -25,7 +21,9 @@ from globalvars import GlobalVars
 from parsing import fetch_post_id_and_site_from_url, fetch_post_url_from_msg_content, fetch_owner_url_from_msg_content
 from tasks import Tasks
 from socketscience import SocketScience
-
+from chatapi import MessagePosted, MessageEdited, Client, Message, Host
+from typing import Any
+from rich import print as rprint
 LastMessages = collections.namedtuple("LastMessages", ["messages", "reports"])
 
 
@@ -44,42 +42,50 @@ class CmdExceptionLongReply(Exception):
     pass
 
 
-_prefix_commands = {}
+_prefix_commands: dict[str, Any] = {}
 _prefix_commands_lock = threading.RLock()
 
-_reply_commands = {}
+_reply_commands: dict[str, Any] = {}
 _reply_commands_lock = threading.RLock()
 
-_clients = {
-    "stackexchange.com": None,
-    "stackoverflow.com": None,
-    "meta.stackexchange.com": None
+_clients: dict[str, Client] = {
+    "stackexchange.com": None, # type: ignore[dict-item]
+    "stackoverflow.com": None, # type: ignore[dict-item]
+    "meta.stackexchange.com": None # type: ignore[dict-item]
 }
 _clients_lock = threading.RLock()
 
-_room_roles = {}
+_room_roles: dict[str, set[tuple[Host, int]]] = {}
 _room_roles_lock = threading.RLock()
 
-_privileges = {}
+_privileges: dict[tuple[Host, int], set[int]]= {}
 _privileges_lock = threading.RLock()
 
 _global_block = -1
 _global_block_lock = threading.RLock()
 
-_rooms = {}
-_command_rooms = set()
-_watcher_rooms = set()
+_rooms: dict[tuple[Host, int], RoomData] = {} # TODO: not sure if this type hint is right
+_command_rooms: set[tuple[Host, int]] = set()
+_watcher_rooms: set[tuple[Host, int]] = set()
 _rooms_lock = threading.RLock()
 
 _last_messages = LastMessages({}, collections.OrderedDict())
 _last_messages_lock = threading.RLock()
 
 # queue.Queue() is already thread safe, so doesn't need manual locks.
-_msg_queue = queue.Queue()
+_msg_queue: queue.Queue[tuple] = queue.Queue()
 
 _pickle_run = threading.Event()
 
 
+def api_init(_key: str) -> None:
+    from chatapi import Client
+    _clients["stackexchange.com"] = Client()
+    _clients["stackoverflow.com"] = Client()
+    _clients["meta.stackexchange.com"] = Client()
+    core_init(skip_pickle=True)
+
+'''
 def init(username, password, try_cookies=True):
     global _clients
     global _rooms
@@ -155,7 +161,12 @@ def init(username, password, try_cookies=True):
 
         with _clients_lock:
             _clients[site] = client
-
+    core_init()
+    if try_cookies:
+        datahandling.dump_cookies()
+'''
+def core_init(skip_pickle=False) -> None:
+    global _last_messages
     if os.path.exists("rooms_custom.yml"):
         parse_room_config("rooms_custom.yml")
     else:
@@ -164,7 +175,7 @@ def init(username, password, try_cookies=True):
     if not GlobalVars.standby_mode:
         join_command_rooms()
 
-    if datahandling.has_pickle("messageData.p"):
+    if not skip_pickle and datahandling.has_pickle("messageData.p"):
         try:
             with _last_messages_lock:
                 _last_messages = datahandling.load_pickle("messageData.p")
@@ -173,9 +184,6 @@ def init(username, password, try_cookies=True):
 
     threading.Thread(name="pickle ---rick--- runner", target=pickle_last_messages, daemon=True).start()
     threading.Thread(name="message sender", target=send_messages, daemon=True).start()
-
-    if try_cookies:
-        datahandling.dump_cookies()
 
 
 def join_command_rooms():
@@ -330,7 +338,8 @@ def send_reply(room_ident, reply_to_id, message):
 def on_msg(msg, client):
     global _room_roles
 
-    if not isinstance(msg, events.MessagePosted) and not isinstance(msg, events.MessageEdited):
+    if not isinstance(msg, MessagePosted) and not isinstance(msg, MessageEdited):
+        print("Invalid msg type")
         return
 
     message = msg.message
@@ -394,7 +403,7 @@ def tell_rooms(msg, has, hasnt, notify_site="", report_data=None):
 
     msg = msg.rstrip()
     msg = redact_passwords(msg)
-    target_rooms = set()
+    target_rooms: set[tuple[Host, int]] = set()
 
     with _room_roles_lock, _rooms_lock:
         # Go through the list of properties in "has" and add all rooms which have any of those properties
@@ -425,13 +434,13 @@ def tell_rooms(msg, has, hasnt, notify_site="", report_data=None):
                     target_rooms.add(room)
 
         for room_id in target_rooms:
-            room = _rooms[room_id]
+            room_: RoomData = _rooms[room_id]
 
             if notify_site:
-                pings = datahandling.get_user_names_on_notification_list(room.room._client.host,
-                                                                         room.room.id,
+                pings = datahandling.get_user_names_on_notification_list(room_.room._client.host,
+                                                                         room_.room.id,
                                                                          notify_site,
-                                                                         room.room._client)
+                                                                         room_.room._client)
 
                 msg_pings = datahandling.append_pings(msg, pings)
             else:
@@ -441,9 +450,9 @@ def tell_rooms(msg, has, hasnt, notify_site="", report_data=None):
 
             with _global_block_lock:
                 is_global_block_before_timestamp = _global_block < timestamp
-            if room.block_time < timestamp and is_global_block_before_timestamp:
+            if room_.block_time < timestamp and is_global_block_before_timestamp:
                 if report_data and "delay" in _room_roles and room_id in _room_roles["delay"]:
-                    def callback(room=room, msg=msg_pings):
+                    def callback(room=room_, msg=msg_pings):
                         post = fetch_post_id_and_site_from_url(report_data[0])[0:2]
 
                         if not datahandling.is_false_positive(post) and not datahandling.is_ignored_post(post):
@@ -453,7 +462,7 @@ def tell_rooms(msg, has, hasnt, notify_site="", report_data=None):
 
                     GlobalVars.deletion_watcher.subscribe(report_data[0], callback=task.cancel)
                 else:
-                    _msg_queue.put((room, msg_pings, report_data))
+                    _msg_queue.put((room_, msg_pings, report_data))
 
 
 def get_last_messages(room, count):

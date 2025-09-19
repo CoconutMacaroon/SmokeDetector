@@ -41,6 +41,7 @@ import dns.resolver
 from dns.exception import DNSException
 import number_homoglyphs
 import phone_numbers
+import chatapi
 
 
 # TODO: Do we need uid == -2 check?  Turn into "is_user_valid" check
@@ -765,7 +766,7 @@ def remotediff():
 
 # --- Joke Commands --- #
 @command(whole_msg=True)
-def blame(msg):
+def blame(msg: chatapi.Message):
     unlucky_victim = msg._client.get_user(random.choice(msg.room.get_current_user_ids()))
 
     return "It's [{}](https://chat.{}/users/{})'s fault.".format(
