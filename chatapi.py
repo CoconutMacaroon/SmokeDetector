@@ -91,9 +91,13 @@ class Message:
         self.owner: MessageOwner = MessageOwner()
         self.parent: MessageOwner = MessageOwner()  # TODO: what should this do?
         self.content_source: str = ""
-        "`content_source` is the Markdown. That matters for thigns like regular expressions, where the content can have characters which would be recognized as Markdown and changed. ~ Makyen (https://chat.stackexchange.com/transcript/message/54465303)"
+        """`content_source` is the Markdown. That matters for thigns like regular expressions,
+        where the content can have characters which would be recognized as Markdown and changed.
+        ~ Makyen (https://chat.stackexchange.com/transcript/message/54465303)
+        """
         self.content: str = ""
-        "`content` is what's displayed in chat and includes having been processed from Markdown into HTML. ~ Makyen (https://chat.stackexchange.com/transcript/message/54465303)"
+        """`content` is what's displayed in chat and includes having been processed from Markdown
+        into HTML. ~ Makyen (https://chat.stackexchange.com/transcript/message/54465303)"""
         self._client = Client()
 
 

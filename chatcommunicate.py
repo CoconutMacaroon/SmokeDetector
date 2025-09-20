@@ -49,22 +49,22 @@ _reply_commands: dict[str, Any] = {}
 _reply_commands_lock = threading.RLock()
 
 _clients: dict[str, Client] = {
-    "stackexchange.com": None, # type: ignore[dict-item]
-    "stackoverflow.com": None, # type: ignore[dict-item]
-    "meta.stackexchange.com": None # type: ignore[dict-item]
+    "stackexchange.com": None,  # type: ignore[dict-item]
+    "stackoverflow.com": None,  # type: ignore[dict-item]
+    "meta.stackexchange.com": None  # type: ignore[dict-item]
 }
 _clients_lock = threading.RLock()
 
 _room_roles: dict[str, set[tuple[Host, int]]] = {}
 _room_roles_lock = threading.RLock()
 
-_privileges: dict[tuple[Host, int], set[int]]= {}
+_privileges: dict[tuple[Host, int], set[int]] = {}
 _privileges_lock = threading.RLock()
 
 _global_block = -1
 _global_block_lock = threading.RLock()
 
-_rooms: dict[tuple[Host, int], RoomData] = {} # TODO: not sure if this type hint is right
+_rooms: dict[tuple[Host, int], RoomData] = {}  # TODO: not sure if this type hint is right
 _command_rooms: set[tuple[Host, int]] = set()
 _watcher_rooms: set[tuple[Host, int]] = set()
 _rooms_lock = threading.RLock()
@@ -84,6 +84,7 @@ def api_init(_key: str) -> None:
     _clients["stackoverflow.com"] = Client()
     _clients["meta.stackexchange.com"] = Client()
     core_init(skip_pickle=True)
+
 
 '''
 def init(username, password, try_cookies=True):
@@ -165,6 +166,8 @@ def init(username, password, try_cookies=True):
     if try_cookies:
         datahandling.dump_cookies()
 '''
+
+
 def core_init(skip_pickle=False) -> None:
     global _last_messages
     if os.path.exists("rooms_custom.yml"):
