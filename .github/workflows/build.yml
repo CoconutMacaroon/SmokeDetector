@@ -49,14 +49,20 @@ jobs:
     - name: Pytest
       run: |
         python3 -W default::Warning -m pytest \
+          --cov=chatcommands \
           --cov=chatcommunicate \
+          --cov=datahandling \
           --cov=findspam \
           --cov=globalvars \
-          --cov=spamhandling \
-          --cov=datahandling \
-          --cov=chatcommands \
           --cov=helpers \
+          --cov=parsing \
+          --cov=spamhandling \
           -n 3 \
           --dist loadgroup \
           --timeout=300 \
+          --durations=10 \
           test
+    - name: Coverage report
+      run: |
+        echo -e "## Coverage Report\n" >> "$GITHUB_STEP_SUMMARY"
+        coverage report --format=markdown -m >> "$GITHUB_STEP_SUMMARY"

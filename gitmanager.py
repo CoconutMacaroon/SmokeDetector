@@ -40,7 +40,10 @@ class GitHubManager:
         still_using_usernames_nudge = " By the way, tell my owner to [set up personal access tokens]" \
                                       "(//chat.stackexchange.com/transcript/message/55007870#55007870)" \
                                       " when they have time :)"
-        auth_args = {"auth": HTTPBasicAuth(GlobalVars.github_username, GlobalVars.github_password)}
+        if GlobalVars.github_username or GlobalVars.github_password:
+            auth_args = {"auth": HTTPBasicAuth(GlobalVars.github_username, GlobalVars.github_password)}
+        else:
+            auth_args = {}
     else:
         still_using_usernames_nudge = ""
         auth_args = {"headers": {'Authorization': 'token {}'.format(GlobalVars.github_access_token)}}
@@ -52,6 +55,8 @@ class GitHubManager:
             payload = json.dumps(payload)
         response = requests.request(method, route, data=payload, timeout=GlobalVars.default_requests_timeout,
                                     **cls.auth_args)
+        if not response:
+            raise ConnectionError("Cannot connect to GitHub API")
         return response
 
     @classmethod
